@@ -1,0 +1,58 @@
+[tools]
+node = "23.11.1"
+bun = "1.3.10"
+
+[tasks.daemon]
+alias = "d"
+description = "Start the WhatsApp daemon (compiled binary)"
+dir = "{{cwd}}/daemon"
+run = "./whatsapp-bookmark"
+
+[tasks."daemon:dev"]
+description = "Start the daemon with bun (for development)"
+dir = "{{cwd}}/daemon"
+run = "bun run index.js"
+
+[tasks."daemon:auth"]
+description = "Start daemon for first-time QR code auth"
+dir = "{{cwd}}/daemon"
+run = "rm -rf auth_info && ./whatsapp-bookmark"
+
+[tasks."daemon:build"]
+description = "Compile the daemon into a standalone binary"
+dir = "{{cwd}}/daemon"
+run = "bun build --compile --minify index.js --outfile whatsapp-bookmark"
+
+[tasks.install]
+description = "Install all dependencies"
+run = [
+  "npm install",
+  "cd daemon && npm install",
+]
+
+[tasks.dev]
+description = "Start Raycast extension in dev mode"
+run = "npm run dev"
+
+[tasks.lint]
+description = "Lint the Raycast extension"
+run = "npm run lint"
+
+[tasks."daemon:enable"]
+description = "Install and start the daemon as a login service (launchd)"
+depends = ["daemon:build"]
+run = [
+  "cp daemon/com.whatsapp-bookmark.daemon.plist ~/Library/LaunchAgents/",
+  "launchctl load ~/Library/LaunchAgents/com.whatsapp-bookmark.daemon.plist",
+]
+
+[tasks."daemon:disable"]
+description = "Stop and uninstall the daemon login service"
+run = [
+  "launchctl unload ~/Library/LaunchAgents/com.whatsapp-bookmark.daemon.plist",
+  "rm ~/Library/LaunchAgents/com.whatsapp-bookmark.daemon.plist",
+]
+
+[tasks."daemon:logs"]
+description = "Tail the daemon logs"
+run = "tail -f /tmp/whatsapp-bookmark-daemon.log"
