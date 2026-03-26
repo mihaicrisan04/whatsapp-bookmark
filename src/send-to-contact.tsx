@@ -1,16 +1,12 @@
 import {
   Action,
   ActionPanel,
-  Clipboard,
   Icon,
   List,
-  showToast,
-  Toast,
   getPreferenceValues,
 } from "@raycast/api";
 import { useEffect, useState, useCallback } from "react";
-import { sendToDaemon } from "./lib/daemon-client";
-import { readClipboard, describeContent } from "./lib/clipboard-media";
+import { sendClipboardTo } from "./lib/send-clipboard";
 
 interface Preferences {
   phoneNumber: string;
@@ -23,6 +19,7 @@ interface Contact {
   pushName: string | null;
   verifiedName: string | null;
   phone: string;
+  lastMessageTs: number;
 }
 
 export default function Command() {
@@ -50,44 +47,8 @@ export default function Command() {
   }, [searchText, fetchContacts]);
 
   async function handleSend(contact: Contact) {
-    const clipboard = await Clipboard.read();
-    const content = readClipboard(clipboard.text, clipboard.file);
-
-    if (content.type === "empty") {
-      await showToast({ style: Toast.Style.Failure, title: "Nothing in clipboard" });
-      return;
-    }
-
-    const label = describeContent(content);
     const displayName = contact.name || contact.pushName || contact.phone;
-
-    const payload = { phoneNumber: contact.phone } as Record<string, string>;
-
-    switch (content.type) {
-      case "url":
-        payload.text = content.url;
-        break;
-      case "text":
-        payload.text = content.text;
-        break;
-      case "file":
-      case "image":
-        payload.filePath = content.filePath;
-        break;
-    }
-
-    const toast = await showToast({ style: Toast.Style.Animated, title: `Sending to ${displayName}...` });
-
-    try {
-      await sendToDaemon(port, payload as { text?: string; filePath?: string; phoneNumber: string });
-      toast.style = Toast.Style.Success;
-      toast.title = `Sent to ${displayName}`;
-      toast.message = label;
-    } catch (err) {
-      toast.style = Toast.Style.Failure;
-      toast.title = "Failed to send";
-      toast.message = err instanceof Error ? err.message : "Is the daemon running?";
-    }
+    await sendClipboardTo(port, contact.phone, displayName);
   }
 
   function displayName(c: Contact): string {
@@ -114,10 +75,12 @@ export default function Command() {
           icon={Icon.Person}
           title={displayName(contact)}
           subtitle={subtitle(contact)}
-          accessories={contact.verifiedName ? [{ tag: "business" }] : []}
+          accessories={[
+            ...(contact.verifiedName ? [{ tag: "business" }] : []),
+          ]}
           actions={
             <ActionPanel>
-              <Action title="Send Clipboard to Contact" icon={Icon.Message} onAction={() => handleSend(contact)} />
+              <Action title="Send Clipboard" icon={Icon.Message} onAction={() => handleSend(contact)} />
             </ActionPanel>
           }
         />

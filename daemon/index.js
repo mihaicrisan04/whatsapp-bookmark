@@ -47,7 +47,7 @@ let currentQR = null;
 let reconnectAttempt = 0;
 
 const pendingMessages = [];
-const contacts = new Map(); // jid -> { id, name, notify, verifiedName, phoneNumber }
+const contacts = new Map(); // jid -> { id, name, notify, verifiedName, lastMessageTs }
 
 // load persisted contacts on startup
 try {
@@ -61,6 +61,20 @@ try {
 function saveContactsToDisk() {
   writeFileSync(CONTACTS_FILE, JSON.stringify([...contacts.values()]));
   console.log(`saved ${contacts.size} contacts to disk`);
+}
+
+function updateChatTimestamps(chats) {
+  for (const chat of chats) {
+    if (!chat.id?.endsWith("@s.whatsapp.net")) continue;
+    const ts = Number(chat.conversationTimestamp || chat.lastMessageRecvTimestamp || 0);
+    if (!ts) continue;
+    const existing = contacts.get(chat.id) || { id: chat.id };
+    // only update if newer
+    if (!existing.lastMessageTs || ts > existing.lastMessageTs) {
+      contacts.set(chat.id, { ...existing, lastMessageTs: ts });
+      contactsDirty = true;
+    }
+  }
 }
 
 let contactsDirty = false;
@@ -93,24 +107,19 @@ function searchContacts(query) {
     if (!c.id?.endsWith("@s.whatsapp.net")) continue;
     const name = c.name || c.notify || c.verifiedName || "";
     const phone = c.id.split("@")[0];
-    if (name.toLowerCase().includes(q) || phone.includes(q)) {
+    if (!q || name.toLowerCase().includes(q) || phone.includes(q)) {
       results.push({
         jid: c.id,
         name: c.name || null,
         pushName: c.notify || null,
         verifiedName: c.verifiedName || null,
         phone,
+        lastMessageTs: c.lastMessageTs || 0,
       });
     }
   }
-  // sort: contacts with saved names first, then by name/pushName
-  results.sort((a, b) => {
-    const aName = a.name || a.pushName || a.phone;
-    const bName = b.name || b.pushName || b.phone;
-    if (a.name && !b.name) return -1;
-    if (!a.name && b.name) return 1;
-    return aName.localeCompare(bName);
-  });
+  // sort by most recent message first
+  results.sort((a, b) => (b.lastMessageTs || 0) - (a.lastMessageTs || 0));
   return results;
 }
 
@@ -198,13 +207,15 @@ async function startWhatsApp() {
 
   sock.ev.on("creds.update", saveCreds);
 
-  // accumulate contacts from all sources
+  // accumulate contacts and chat timestamps
   sock.ev.on("messaging-history.set", (data) => {
     console.log(`messaging-history.set: ${data.contacts?.length || 0} contacts, ${data.chats?.length || 0} chats`);
-    const syncedContacts = data.contacts;
-    if (syncedContacts?.length) {
-      upsertContacts(syncedContacts);
-      console.log(`synced ${syncedContacts.length} contacts (total: ${contacts.size})`);
+    if (data.contacts?.length) {
+      upsertContacts(data.contacts);
+      console.log(`synced ${data.contacts.length} contacts (total: ${contacts.size})`);
+    }
+    if (data.chats?.length) {
+      updateChatTimestamps(data.chats);
     }
   });
 
@@ -215,11 +226,28 @@ async function startWhatsApp() {
 
   sock.ev.on("contacts.update", (updates) => {
     upsertContacts(updates);
-    console.log(`contacts.update: +${updates.length} (total: ${contacts.size})`);
   });
 
   sock.ev.on("chats.upsert", (chats) => {
-    console.log(`chats.upsert: ${chats.length} chats`);
+    updateChatTimestamps(chats);
+  });
+
+  sock.ev.on("chats.update", (updates) => {
+    updateChatTimestamps(updates);
+  });
+
+  // update timestamp when we send a message
+  sock.ev.on("messages.upsert", ({ messages }) => {
+    for (const msg of messages) {
+      const jid = msg.key?.remoteJid;
+      if (!jid?.endsWith("@s.whatsapp.net")) continue;
+      const ts = msg.messageTimestamp;
+      if (ts) {
+        const existing = contacts.get(jid) || { id: jid };
+        contacts.set(jid, { ...existing, lastMessageTs: Number(ts) });
+        contactsDirty = true;
+      }
+    }
   });
 
   sock.ev.on("connection.update", (update) => {

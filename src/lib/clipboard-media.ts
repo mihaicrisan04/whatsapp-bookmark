@@ -54,19 +54,21 @@ function fileUrlToPath(fileUrl: string): string {
 }
 
 export function readClipboard(text?: string, file?: string): ClipboardContent {
+  // if text looks like clipboard metadata (e.g. Shottr's "Image (1688x1085)"),
+  // extract the actual image via Swift before checking the file field —
+  // Shottr puts a temp file with no extension which the daemon can't type-detect
+  if (text && looksLikeClipboardMeta(text)) {
+    const imagePath = saveClipboardImage();
+    if (imagePath) {
+      return { type: "image", filePath: imagePath };
+    }
+  }
+
   // file copied from Finder
   if (file) {
     const filePath = fileUrlToPath(file);
     if (existsSync(filePath)) {
       return { type: "file", filePath };
-    }
-  }
-
-  // if text looks like clipboard metadata, try image extraction first
-  if (text && looksLikeClipboardMeta(text)) {
-    const imagePath = saveClipboardImage();
-    if (imagePath) {
-      return { type: "image", filePath: imagePath };
     }
   }
 

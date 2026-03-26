@@ -1,6 +1,5 @@
-import { Clipboard, showHUD, getPreferenceValues, showToast, Toast } from "@raycast/api";
-import { sendToDaemon } from "./lib/daemon-client";
-import { readClipboard, describeContent } from "./lib/clipboard-media";
+import { getPreferenceValues } from "@raycast/api";
+import { sendClipboardTo } from "./lib/send-clipboard";
 
 interface Preferences {
   phoneNumber: string;
@@ -10,41 +9,5 @@ interface Preferences {
 export default async function Command() {
   const prefs = getPreferenceValues<Preferences>();
   const port = parseInt(prefs.daemonPort) || 7272;
-
-  const clipboard = await Clipboard.read();
-  const content = readClipboard(clipboard.text, clipboard.file);
-
-  if (content.type === "empty") {
-    await showHUD("Nothing in clipboard");
-    return;
-  }
-
-  const label = describeContent(content);
-  const payload = { phoneNumber: prefs.phoneNumber } as Record<string, string>;
-
-  switch (content.type) {
-    case "url":
-      payload.text = content.url;
-      break;
-    case "text":
-      payload.text = content.text;
-      break;
-    case "file":
-    case "image":
-      payload.filePath = content.filePath;
-      break;
-  }
-
-  const toast = await showToast({ style: Toast.Style.Animated, title: "Sending to WhatsApp..." });
-
-  try {
-    await sendToDaemon(port, payload as { text?: string; filePath?: string; phoneNumber: string });
-    toast.style = Toast.Style.Success;
-    toast.title = "Sent to WhatsApp";
-    toast.message = label;
-  } catch (err) {
-    toast.style = Toast.Style.Failure;
-    toast.title = "Failed to send";
-    toast.message = err instanceof Error ? err.message : "Is the daemon running?";
-  }
+  await sendClipboardTo(port, prefs.phoneNumber, "yourself");
 }

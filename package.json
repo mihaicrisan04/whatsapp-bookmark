@@ -12,8 +12,8 @@
   "commands": [
     {
       "name": "send-link",
-      "title": "Send to WhatsApp",
-      "description": "Send clipboard content (link, text, image, file) to yourself on WhatsApp",
+      "title": "Send to Yourself",
+      "description": "Send clipboard content to yourself on WhatsApp",
       "mode": "no-view"
     },
     {
