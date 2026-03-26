@@ -14,9 +14,9 @@ dir = "{{cwd}}/daemon"
 run = "bun run index.js"
 
 [tasks."daemon:auth"]
-description = "Start daemon for first-time QR code auth"
+description = "Fresh auth — wipes credentials, shows QR code"
 dir = "{{cwd}}/daemon"
-run = "rm -rf auth_info && ./whatsapp-bookmark"
+run = "rm -rf auth_info contacts.json && ./whatsapp-bookmark"
 
 [tasks."daemon:build"]
 description = "Compile the daemon into a standalone binary"
@@ -39,11 +39,40 @@ description = "Lint the Raycast extension"
 run = "npm run lint"
 
 [tasks."daemon:enable"]
-description = "Install and start the daemon as a login service (launchd) — run daemon:build first if using compiled binary"
-run = [
-  "cp daemon/com.whatsapp-bookmark.daemon.plist ~/Library/LaunchAgents/",
-  "launchctl load ~/Library/LaunchAgents/com.whatsapp-bookmark.daemon.plist",
-]
+description = "Install and start the daemon as a login service (launchd)"
+run = '''
+DAEMON_PATH="$(cd daemon && pwd)/whatsapp-bookmark"
+DAEMON_DIR="$(cd daemon && pwd)"
+PLIST=~/Library/LaunchAgents/com.whatsapp-bookmark.daemon.plist
+
+cat > "$PLIST" << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.whatsapp-bookmark.daemon</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>$DAEMON_PATH</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>$DAEMON_DIR</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>StandardOutPath</key>
+    <string>/tmp/whatsapp-bookmark-daemon.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/whatsapp-bookmark-daemon.log</string>
+</dict>
+</plist>
+EOF
+
+launchctl load "$PLIST"
+echo "daemon enabled — will start on login and restart if it crashes"
+'''
 
 [tasks."daemon:disable"]
 description = "Stop and uninstall the daemon login service"
