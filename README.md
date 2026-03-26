@@ -1,8 +1,10 @@
 # WhatsApp Bookmark
 
-a Raycast extension for sending stuff to WhatsApp — links, text, screenshots, files, whatever's on your clipboard. use it to bookmark links to yourself or quickly share things with contacts.
+<p align="center">
+  <img src="assets/icon.png" width="128" height="128" alt="WhatsApp Bookmark icon">
+</p>
 
-mit license, do whatever you want with it.
+a Raycast extension for sending stuff to WhatsApp — links, text, screenshots, files, whatever's on your clipboard. use it to bookmark links to yourself or quickly share things with contacts.
 
 ## architecture
 
