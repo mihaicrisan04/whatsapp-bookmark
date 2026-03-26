@@ -39,8 +39,7 @@ description = "Lint the Raycast extension"
 run = "npm run lint"
 
 [tasks."daemon:enable"]
-description = "Install and start the daemon as a login service (launchd)"
-depends = ["daemon:build"]
+description = "Install and start the daemon as a login service (launchd) — run daemon:build first if using compiled binary"
 run = [
   "cp daemon/com.whatsapp-bookmark.daemon.plist ~/Library/LaunchAgents/",
   "launchctl load ~/Library/LaunchAgents/com.whatsapp-bookmark.daemon.plist",

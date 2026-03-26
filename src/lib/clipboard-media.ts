@@ -46,10 +46,20 @@ function looksLikeClipboardMeta(text: string): boolean {
   return /^Image\s*\(\d+[x×]\d+\)$/i.test(text.trim());
 }
 
+function fileUrlToPath(fileUrl: string): string {
+  if (fileUrl.startsWith("file://")) {
+    return decodeURIComponent(new URL(fileUrl).pathname);
+  }
+  return fileUrl;
+}
+
 export function readClipboard(text?: string, file?: string): ClipboardContent {
   // file copied from Finder
-  if (file && existsSync(file)) {
-    return { type: "file", filePath: file };
+  if (file) {
+    const filePath = fileUrlToPath(file);
+    if (existsSync(filePath)) {
+      return { type: "file", filePath };
+    }
   }
 
   // if text looks like clipboard metadata, try image extraction first
