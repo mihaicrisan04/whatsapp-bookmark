@@ -1,11 +1,7 @@
 import { execSync } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-
-const IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
-const VIDEO_EXTS = [".mp4", ".mov", ".avi", ".mkv", ".webm", ".3gp"];
-const MEDIA_EXTS = [...IMAGE_EXTS, ...VIDEO_EXTS];
 
 export type ClipboardContent =
   | { type: "text"; text: string }
@@ -15,32 +11,39 @@ export type ClipboardContent =
   | { type: "empty" };
 
 /**
- * Try to save a clipboard image (bitmap data) to a temp PNG file via AppleScript.
- * Returns the file path or null if no image on clipboard.
+ * Extract clipboard image data to a temp PNG file via Swift.
+ * Handles public.png, public.tiff, and other NSImage-compatible pasteboard types.
  */
 function saveClipboardImage(): string | null {
   const tempPath = join(tmpdir(), `whatsapp-clipboard-${Date.now()}.png`);
   try {
-    execSync(`osascript -e '
-      set tempFile to POSIX file "${tempPath}"
-      try
-        set imgData to the clipboard as «class PNGf»
-        set fp to open for access tempFile with write permission
-        write imgData to fp
-        close access fp
-        return "ok"
-      on error
-        return "no image"
-      end try
-    '`, { timeout: 5000 }).toString().trim();
+    const result = execSync(`swift -e '
+import AppKit
+let pb = NSPasteboard.general
+guard let img = NSImage(pasteboard: pb) else { print("none"); exit(0) }
+guard let tiff = img.tiffRepresentation,
+      let rep = NSBitmapImageRep(data: tiff),
+      let png = rep.representation(using: .png, properties: [:])
+else { print("none"); exit(0) }
+try png.write(to: URL(fileURLWithPath: "${tempPath}"))
+print("ok")
+'`, { timeout: 10000 }).toString().trim();
 
-    if (existsSync(tempPath)) {
+    if (result === "ok" && existsSync(tempPath) && statSync(tempPath).size > 0) {
       return tempPath;
     }
   } catch {
-    // no image data on clipboard
+    // no image on clipboard
   }
   return null;
+}
+
+/**
+ * Check if text looks like clipboard metadata rather than real content.
+ * Apps like Shottr put "Image (1896x1226)" alongside the actual image data.
+ */
+function looksLikeClipboardMeta(text: string): boolean {
+  return /^Image\s*\(\d+[x×]\d+\)$/i.test(text.trim());
 }
 
 export function readClipboard(text?: string, file?: string): ClipboardContent {
@@ -49,22 +52,30 @@ export function readClipboard(text?: string, file?: string): ClipboardContent {
     return { type: "file", filePath: file };
   }
 
-  // text content
-  if (text) {
-    const urlPattern = /^https?:\/\/[^\s]+$/;
-    if (urlPattern.test(text.trim())) {
-      return { type: "url", url: text.trim() };
+  // if text looks like clipboard metadata, try image extraction first
+  if (text && looksLikeClipboardMeta(text)) {
+    const imagePath = saveClipboardImage();
+    if (imagePath) {
+      return { type: "image", filePath: imagePath };
     }
-    return { type: "text", text };
   }
 
-  // try to grab image bitmap from pasteboard
-  const imagePath = saveClipboardImage();
-  if (imagePath) {
-    return { type: "image", filePath: imagePath };
+  // try image extraction if there's no text at all
+  if (!text) {
+    const imagePath = saveClipboardImage();
+    if (imagePath) {
+      return { type: "image", filePath: imagePath };
+    }
+    return { type: "empty" };
   }
 
-  return { type: "empty" };
+  // real text content
+  const urlPattern = /^https?:\/\/[^\s]+$/;
+  if (urlPattern.test(text.trim())) {
+    return { type: "url", url: text.trim() };
+  }
+
+  return { type: "text", text };
 }
 
 export function describeContent(content: ClipboardContent): string {

@@ -5,6 +5,33 @@ import { existsSync } from "node:fs";
 import { Boom } from "@hapi/boom";
 import qrcode from "qrcode-terminal";
 import pino from "pino";
+import * as Jimp from "jimp";
+import { readFileSync } from "node:fs";
+
+// generate JPEG thumbnail from an image file — used because Baileys can't
+// find jimp via dynamic import() in Bun compiled binaries
+// convert images to JPEG for WhatsApp (PNGs often get treated as documents)
+// only resize if dimensions are extreme (>4096px)
+const MAX_IMAGE_DIM = 4096;
+
+async function prepareImage(filePath) {
+  const buf = readFileSync(filePath);
+  const img = await Jimp.Jimp.read(buf);
+  const { width, height } = img;
+
+  if (width > MAX_IMAGE_DIM || height > MAX_IMAGE_DIM) {
+    const scale = MAX_IMAGE_DIM / Math.max(width, height);
+    img.resize({ w: Math.round(width * scale), h: Math.round(height * scale) });
+  }
+
+  const image = await img.getBuffer("image/jpeg", { quality: 85 });
+  // small thumbnail for the chat preview
+  const thumbImg = img.clone();
+  thumbImg.resize({ w: 100, h: Jimp.JimpMime.AUTO });
+  const jpegThumbnail = await thumbImg.getBuffer("image/jpeg", { quality: 50 });
+
+  return { image, jpegThumbnail };
+}
 
 const PORT = parseInt(process.env.PORT || "7272");
 const AUTH_DIR = join(process.cwd(), "auth_info");
@@ -38,7 +65,7 @@ const MIME_MAP = {
   ".zip": "application/zip", ".txt": "text/plain",
 };
 
-function buildMessage(payload) {
+async function buildMessage(payload) {
   const { text, filePath, caption } = payload;
 
   // text-only message
@@ -48,19 +75,22 @@ function buildMessage(payload) {
 
   const ext = extname(filePath).toLowerCase();
   const fileName = basename(filePath);
+  // read file into buffer — avoids Bun stream compatibility issues
+  const buffer = readFileSync(filePath);
 
   if (IMAGE_EXTS.has(ext)) {
-    return { image: { url: filePath }, caption };
+    const { image, jpegThumbnail } = await prepareImage(filePath);
+    return { image, mimetype: "image/jpeg", caption, jpegThumbnail };
   }
   if (VIDEO_EXTS.has(ext)) {
-    return { video: { url: filePath }, caption };
+    return { video: buffer, mimetype: MIME_MAP[ext] || "video/mp4", caption };
   }
   if (AUDIO_EXTS.has(ext)) {
-    return { audio: { url: filePath }, mimetype: MIME_MAP[ext] || "audio/mpeg" };
+    return { audio: buffer, mimetype: MIME_MAP[ext] || "audio/mpeg" };
   }
   // everything else as document
   return {
-    document: { url: filePath },
+    document: buffer,
     mimetype: MIME_MAP[ext] || "application/octet-stream",
     fileName,
     caption,
@@ -68,7 +98,7 @@ function buildMessage(payload) {
 }
 
 async function sendMsg(jid, payload) {
-  const msg = buildMessage(payload);
+  const msg = await buildMessage(payload);
   await sock.sendMessage(jid, msg);
   const label = payload.filePath ? basename(payload.filePath) : (payload.text || "").slice(0, 80);
   console.log(`sent: ${label}`);

@@ -11,8 +11,11 @@ export default async function Command() {
   const prefs = getPreferenceValues<Preferences>();
   const port = parseInt(prefs.daemonPort) || 7272;
 
-  const { text, file } = await Clipboard.read();
-  const content = readClipboard(text, file);
+  const clipboard = await Clipboard.read();
+  console.log("clipboard raw:", JSON.stringify({ text: clipboard.text?.slice(0, 100), file: clipboard.file }));
+
+  const content = readClipboard(clipboard.text, clipboard.file);
+  console.log("detected content:", JSON.stringify(content));
 
   if (content.type === "empty") {
     await showHUD("Nothing in clipboard");
@@ -20,7 +23,6 @@ export default async function Command() {
   }
 
   const label = describeContent(content);
-  await showHUD(`Sent to WhatsApp: ${label}`);
 
   const payload = { phoneNumber: prefs.phoneNumber } as Record<string, string>;
 
@@ -37,11 +39,17 @@ export default async function Command() {
       break;
   }
 
-  sendToDaemon(port, payload as { text?: string; filePath?: string; phoneNumber: string }).catch(async (err) => {
+  console.log("sending payload:", JSON.stringify(payload));
+
+  try {
+    await sendToDaemon(port, payload as { text?: string; filePath?: string; phoneNumber: string });
+    await showHUD(`Sent to WhatsApp: ${label}`);
+  } catch (err) {
+    console.error("send failed:", err);
     await showToast({
       style: Toast.Style.Failure,
       title: "Failed to send",
       message: err instanceof Error ? err.message : "Is the daemon running?",
     });
-  });
+  }
 }
