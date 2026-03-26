@@ -148,4 +148,4 @@ contacts are synced on first auth. if you skipped the initial sync or it timed o
 
 ## license
 
-MIT — do whatever you want with it.
+mit do whatever
