@@ -1,11 +1,20 @@
 # WhatsApp Bookmark
 
-a Raycast extension that sends links from your clipboard to yourself on WhatsApp. copy a URL, fire the command, it lands in your "Message Yourself" chat.
+a Raycast extension that sends clipboard content to yourself on WhatsApp — links, text, images, videos, files. copy anything, fire the command, it lands in your "Message Yourself" chat.
+
+## what it sends
+
+- **links** — sent as text messages
+- **plain text** — sent as text messages
+- **images** (png, jpg, gif, webp) — sent as WhatsApp images
+- **videos** (mp4, mov, etc.) — sent as WhatsApp videos
+- **files** (pdf, docs, zip, anything else) — sent as WhatsApp documents
+- **clipboard images** (screenshots, copied images) — extracted from pasteboard and sent as images
 
 ## how it works
 
 - **daemon** — a standalone binary (compiled with Bun) that maintains a persistent WhatsApp Web connection via [Baileys](https://github.com/WhiskeySockets/Baileys). runs locally, exposes a tiny HTTP API on `localhost:7272`
-- **raycast extension** — grabs URLs from your clipboard and sends them to the daemon
+- **raycast extension** — reads your clipboard, detects content type, and sends it to the daemon
 
 ## setup
 
@@ -15,28 +24,27 @@ a Raycast extension that sends links from your clipboard to yourself on WhatsApp
 - [mise](https://mise.jdx.dev/) (recommended) — manages node + bun versions via the included `mise.toml`
 - or manually: Node.js 20+ and [Bun](https://bun.sh) 1.3+
 
-### install
+### install from release (quickest)
+
+1. download the `whatsapp-bookmark` binary from [releases](https://github.com/mihaicrisan04/whatsapp-bookmark/releases)
+2. `chmod +x whatsapp-bookmark`
+3. run it, scan the QR, you're done
+
+### build from source
 
 ```bash
-git clone <repo-url> && cd whatsapp-bookmark
+git clone https://github.com/mihaicrisan04/whatsapp-bookmark.git && cd whatsapp-bookmark
 
 # with mise (recommended)
 mise install
 mise run install
+mise daemon:build
 
 # without mise
 npm install
 cd daemon && npm install
+bun build --compile --minify index.js --outfile whatsapp-bookmark
 ```
-
-### build the daemon
-
-```bash
-mise daemon:build
-# or: cd daemon && bun build --compile --minify index.js --outfile whatsapp-bookmark
-```
-
-this compiles everything into a single 64MB binary — no node_modules needed at runtime.
 
 ### authenticate with WhatsApp
 
@@ -56,7 +64,7 @@ mise daemon:auth
 npm run dev
 ```
 
-1. open Raycast, search for "Send Link to WhatsApp"
+1. open Raycast, search for "Send to WhatsApp"
 2. fill in preferences:
    - **phone number** — your WhatsApp number with country code, no `+` or dashes (e.g. `40712345678`)
    - **daemon port** — leave as `7272` unless you changed it
@@ -67,7 +75,7 @@ npm run dev
 mise daemon:enable
 ```
 
-this installs a launchd agent that starts the daemon on login and restarts it if it crashes.
+installs a launchd agent that starts the daemon on login and restarts it if it crashes.
 
 ```bash
 mise daemon:disable   # remove it
@@ -78,18 +86,18 @@ mise daemon:logs      # tail the logs
 
 | command | what it does |
 |---------|-------------|
-| **Send Link to WhatsApp** | grabs the top clipboard URL and sends it instantly (no UI) |
-| **Pick Link to Send** | shows your last 6 clipboard items that are URLs, pick one |
+| **Send to WhatsApp** | sends clipboard content instantly (no UI) — detects if it's a link, text, image, or file |
+| **Pick Item to Send** | shows your last 6 clipboard items with type tags, pick one to send |
 | **WhatsApp Auth** | shows the QR code inside Raycast for authentication |
 | **WhatsApp Daemon Status** | shows if the daemon is running and connected |
 
 ## daily usage
 
 1. daemon is running (auto-started or `mise daemon`)
-2. copy a URL
-3. Raycast → "Send Link" → done
+2. copy anything — a link, some text, a file, take a screenshot
+3. Raycast → "Send to WhatsApp" → done
 
-tip: assign a hotkey in Raycast for "Send Link to WhatsApp" for one-keystroke bookmarking.
+tip: assign a hotkey in Raycast for "Send to WhatsApp" for one-keystroke sending.
 
 ## mise tasks
 
@@ -115,14 +123,18 @@ WhatsApp periodically changes their protocol version. the `version` array in `da
 make sure the phone number in Raycast preferences matches your actual WhatsApp number (with country code, no `+`).
 
 **daemon disconnects often**
-normal — Baileys auto-reconnects. if it says "logged out", run `mise daemon:auth` to re-scan.
+normal — Baileys auto-reconnects with exponential backoff. if it says "logged out", run `mise daemon:auth` to re-scan.
+
+**media fails to send**
+WhatsApp limits: images/videos/audio 16MB, documents 100MB. make sure the file isn't too large.
 
 ## important notes
 
 - **personal/local use only** — can't be published to the Raycast store
 - Baileys reverse-engineers WhatsApp Web, which technically violates WhatsApp's ToS
-- ban risk for personal use (few links/day to yourself) is very low but not zero
+- ban risk for personal use (sending yourself stuff a few times a day) is very low but not zero
 - credentials in `daemon/auth_info/` — keep private, gitignored
+- macOS Accessibility permission may be needed for clipboard image extraction
 
 ## license
 

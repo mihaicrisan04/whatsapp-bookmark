@@ -1,6 +1,7 @@
 import makeWASocket, { useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys";
 import { createServer } from "node:http";
-import { join } from "node:path";
+import { join, extname, basename } from "node:path";
+import { existsSync } from "node:fs";
 import { Boom } from "@hapi/boom";
 import qrcode from "qrcode-terminal";
 import pino from "pino";
@@ -17,16 +18,68 @@ let phoneNumber = null;
 let currentQR = null;
 let reconnectAttempt = 0;
 
-// pending messages queue — sent when connection is restored
 const pendingMessages = [];
+
+const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"]);
+const VIDEO_EXTS = new Set([".mp4", ".mov", ".avi", ".mkv", ".webm", ".3gp"]);
+const AUDIO_EXTS = new Set([".mp3", ".ogg", ".m4a", ".wav", ".aac", ".opus"]);
+
+const MIME_MAP = {
+  ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
+  ".gif": "image/gif", ".webp": "image/webp",
+  ".mp4": "video/mp4", ".mov": "video/quicktime", ".avi": "video/x-msvideo",
+  ".mkv": "video/x-matroska", ".webm": "video/webm", ".3gp": "video/3gpp",
+  ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".m4a": "audio/mp4",
+  ".wav": "audio/wav", ".aac": "audio/aac", ".opus": "audio/opus",
+  ".pdf": "application/pdf", ".doc": "application/msword",
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".xls": "application/vnd.ms-excel",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".zip": "application/zip", ".txt": "text/plain",
+};
+
+function buildMessage(payload) {
+  const { text, filePath, caption } = payload;
+
+  // text-only message
+  if (!filePath) {
+    return { text: text || "" };
+  }
+
+  const ext = extname(filePath).toLowerCase();
+  const fileName = basename(filePath);
+
+  if (IMAGE_EXTS.has(ext)) {
+    return { image: { url: filePath }, caption };
+  }
+  if (VIDEO_EXTS.has(ext)) {
+    return { video: { url: filePath }, caption };
+  }
+  if (AUDIO_EXTS.has(ext)) {
+    return { audio: { url: filePath }, mimetype: MIME_MAP[ext] || "audio/mpeg" };
+  }
+  // everything else as document
+  return {
+    document: { url: filePath },
+    mimetype: MIME_MAP[ext] || "application/octet-stream",
+    fileName,
+    caption,
+  };
+}
+
+async function sendMsg(jid, payload) {
+  const msg = buildMessage(payload);
+  await sock.sendMessage(jid, msg);
+  const label = payload.filePath ? basename(payload.filePath) : (payload.text || "").slice(0, 80);
+  console.log(`sent: ${label}`);
+}
 
 async function flushPending() {
   while (pendingMessages.length > 0 && connected && sock) {
-    const { jid, url } = pendingMessages[0];
+    const { jid, payload } = pendingMessages[0];
     try {
-      await sock.sendMessage(jid, { text: url });
+      await sendMsg(jid, payload);
       pendingMessages.shift();
-      console.log(`sent (queued): ${url}`);
     } catch (err) {
       console.error("failed to flush queued message:", err.message);
       break;
@@ -74,7 +127,6 @@ async function startWhatsApp() {
         process.exit(1);
       }
 
-      // exponential backoff on reconnect
       reconnectAttempt++;
       const delay = Math.min(1000 * Math.pow(2, reconnectAttempt - 1), MAX_RECONNECT_DELAY);
       console.log(`disconnected (reason ${reason}), reconnecting in ${delay}ms...`);
@@ -83,7 +135,6 @@ async function startWhatsApp() {
   });
 }
 
-// simple HTTP server for the raycast extension to talk to
 const server = createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/status") {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -107,10 +158,17 @@ const server = createServer(async (req, res) => {
     for await (const chunk of req) body += chunk;
 
     try {
-      const { url, phoneNumber: targetPhone } = JSON.parse(body);
-      if (!url) {
+      const { text, filePath, caption, phoneNumber: targetPhone } = JSON.parse(body);
+
+      if (!text && !filePath) {
         res.writeHead(400);
-        res.end("Missing url");
+        res.end("Missing text or filePath");
+        return;
+      }
+
+      if (filePath && !existsSync(filePath)) {
+        res.writeHead(400);
+        res.end(`File not found: ${filePath}`);
         return;
       }
 
@@ -124,13 +182,13 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      const payload = { text, filePath, caption };
+
       if (connected && sock) {
-        await sock.sendMessage(jid, { text: url });
-        console.log(`sent: ${url}`);
+        await sendMsg(jid, payload);
       } else {
-        // queue for when connection is restored
-        pendingMessages.push({ jid, url });
-        console.log(`queued (offline): ${url}`);
+        pendingMessages.push({ jid, payload });
+        console.log(`queued (offline): ${filePath || text}`);
       }
 
       res.writeHead(200);

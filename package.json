@@ -2,7 +2,7 @@
   "$schema": "https://www.raycast.com/schemas/extension.json",
   "name": "whatsapp-bookmark",
   "title": "WhatsApp Bookmark",
-  "description": "Send clipboard links to yourself on WhatsApp as bookmarks",
+  "description": "Send clipboard content (links, text, images, videos, files) to yourself on WhatsApp",
   "icon": "icon.png",
   "author": "mihai",
   "categories": [
@@ -12,14 +12,14 @@
   "commands": [
     {
       "name": "send-link",
-      "title": "Send Link to WhatsApp",
-      "description": "Send the top clipboard link to yourself on WhatsApp",
+      "title": "Send to WhatsApp",
+      "description": "Send clipboard content (link, text, image, file) to yourself on WhatsApp",
       "mode": "no-view"
     },
     {
       "name": "pick-link",
-      "title": "Pick Link to Send",
-      "description": "Pick from recent clipboard links and send to WhatsApp",
+      "title": "Pick Item to Send",
+      "description": "Pick from recent clipboard items and send to WhatsApp",
       "mode": "view"
     },
     {
