@@ -22,6 +22,8 @@ declare namespace Preferences {
   export type SendLink = ExtensionPreferences & {}
   /** Preferences accessible in the `pick-link` command */
   export type PickLink = ExtensionPreferences & {}
+  /** Preferences accessible in the `send-to-contact` command */
+  export type SendToContact = ExtensionPreferences & {}
   /** Preferences accessible in the `auth` command */
   export type Auth = ExtensionPreferences & {}
   /** Preferences accessible in the `daemon-status` command */
@@ -33,6 +35,8 @@ declare namespace Arguments {
   export type SendLink = {}
   /** Arguments passed to the `pick-link` command */
   export type PickLink = {}
+  /** Arguments passed to the `send-to-contact` command */
+  export type SendToContact = {}
   /** Arguments passed to the `auth` command */
   export type Auth = {}
   /** Arguments passed to the `daemon-status` command */

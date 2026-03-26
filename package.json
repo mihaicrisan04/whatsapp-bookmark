@@ -23,6 +23,12 @@
       "mode": "view"
     },
     {
+      "name": "send-to-contact",
+      "title": "Send to Contact",
+      "description": "Search your WhatsApp contacts and send clipboard content to them",
+      "mode": "view"
+    },
+    {
       "name": "auth",
       "title": "WhatsApp Auth",
       "description": "Authenticate with WhatsApp by scanning a QR code",

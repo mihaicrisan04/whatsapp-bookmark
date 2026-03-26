@@ -4,3 +4,4 @@ dist/
 daemon/auth_info/
 daemon/node_modules/
 daemon/whatsapp-bookmark
+daemon/contacts.json

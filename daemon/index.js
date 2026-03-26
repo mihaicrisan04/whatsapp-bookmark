@@ -1,7 +1,7 @@
 import makeWASocket, { useMultiFileAuthState, DisconnectReason } from "@whiskeysockets/baileys";
 import { createServer } from "node:http";
 import { join, extname, basename } from "node:path";
-import { existsSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { Boom } from "@hapi/boom";
 import qrcode from "qrcode-terminal";
 import pino from "pino";
@@ -35,6 +35,7 @@ async function prepareImage(filePath) {
 
 const PORT = parseInt(process.env.PORT || "7272");
 const AUTH_DIR = join(process.cwd(), "auth_info");
+const CONTACTS_FILE = join(process.cwd(), "contacts.json");
 const MAX_RECONNECT_DELAY = 60000;
 
 const logger = pino({ level: process.env.DEBUG ? "debug" : "warn" });
@@ -46,6 +47,72 @@ let currentQR = null;
 let reconnectAttempt = 0;
 
 const pendingMessages = [];
+const contacts = new Map(); // jid -> { id, name, notify, verifiedName, phoneNumber }
+
+// load persisted contacts on startup
+try {
+  if (existsSync(CONTACTS_FILE)) {
+    const saved = JSON.parse(readFileSync(CONTACTS_FILE, "utf8"));
+    for (const c of saved) contacts.set(c.id, c);
+    console.log(`loaded ${contacts.size} contacts from disk`);
+  }
+} catch {}
+
+function saveContactsToDisk() {
+  writeFileSync(CONTACTS_FILE, JSON.stringify([...contacts.values()]));
+  console.log(`saved ${contacts.size} contacts to disk`);
+}
+
+let contactsDirty = false;
+
+function upsertContacts(list) {
+  for (const c of list) {
+    const existing = contacts.get(c.id) || {};
+    contacts.set(c.id, { ...existing, ...c });
+  }
+  contactsDirty = true;
+}
+
+// save contacts periodically if dirty
+setInterval(() => {
+  if (contactsDirty && contacts.size > 0) {
+    saveContactsToDisk();
+    contactsDirty = false;
+  }
+}, 5000);
+
+// save on exit
+process.on("SIGINT", () => { if (contactsDirty) saveContactsToDisk(); process.exit(0); });
+process.on("SIGTERM", () => { if (contactsDirty) saveContactsToDisk(); process.exit(0); });
+
+function searchContacts(query) {
+  const q = query.toLowerCase();
+  const results = [];
+  for (const c of contacts.values()) {
+    // skip groups and non-user JIDs
+    if (!c.id?.endsWith("@s.whatsapp.net")) continue;
+    const name = c.name || c.notify || c.verifiedName || "";
+    const phone = c.id.split("@")[0];
+    if (name.toLowerCase().includes(q) || phone.includes(q)) {
+      results.push({
+        jid: c.id,
+        name: c.name || null,
+        pushName: c.notify || null,
+        verifiedName: c.verifiedName || null,
+        phone,
+      });
+    }
+  }
+  // sort: contacts with saved names first, then by name/pushName
+  results.sort((a, b) => {
+    const aName = a.name || a.pushName || a.phone;
+    const bName = b.name || b.pushName || b.phone;
+    if (a.name && !b.name) return -1;
+    if (!a.name && b.name) return 1;
+    return aName.localeCompare(bName);
+  });
+  return results;
+}
 
 const IMAGE_EXTS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp"]);
 const VIDEO_EXTS = new Set([".mp4", ".mov", ".avi", ".mkv", ".webm", ".3gp"]);
@@ -126,9 +193,34 @@ async function startWhatsApp() {
     // WhatsApp rejects the hardcoded version in the npm release (405 error).
     // This must be kept in sync — check github.com/WhiskeySockets/Baileys/issues/2376
     version: [2, 3000, 1034074495],
+    syncFullHistory: true,
   });
 
   sock.ev.on("creds.update", saveCreds);
+
+  // accumulate contacts from all sources
+  sock.ev.on("messaging-history.set", (data) => {
+    console.log(`messaging-history.set: ${data.contacts?.length || 0} contacts, ${data.chats?.length || 0} chats`);
+    const syncedContacts = data.contacts;
+    if (syncedContacts?.length) {
+      upsertContacts(syncedContacts);
+      console.log(`synced ${syncedContacts.length} contacts (total: ${contacts.size})`);
+    }
+  });
+
+  sock.ev.on("contacts.upsert", (list) => {
+    upsertContacts(list);
+    console.log(`contacts.upsert: +${list.length} (total: ${contacts.size})`);
+  });
+
+  sock.ev.on("contacts.update", (updates) => {
+    upsertContacts(updates);
+    console.log(`contacts.update: +${updates.length} (total: ${contacts.size})`);
+  });
+
+  sock.ev.on("chats.upsert", (chats) => {
+    console.log(`chats.upsert: ${chats.length} chats`);
+  });
 
   sock.ev.on("connection.update", (update) => {
     const { connection, lastDisconnect, qr } = update;
@@ -180,6 +272,15 @@ const server = createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/qr") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ qr: currentQR, connected }));
+    return;
+  }
+
+  if (req.method === "GET" && req.url?.startsWith("/contacts")) {
+    const url = new URL(req.url, "http://localhost");
+    const query = url.searchParams.get("q") || "";
+    const results = query ? searchContacts(query) : searchContacts("");
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(results.slice(0, 50)));
     return;
   }
 

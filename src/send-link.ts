@@ -35,14 +35,16 @@ export default async function Command() {
       break;
   }
 
+  const toast = await showToast({ style: Toast.Style.Animated, title: "Sending to WhatsApp..." });
+
   try {
     await sendToDaemon(port, payload as { text?: string; filePath?: string; phoneNumber: string });
-    await showHUD(`Sent to WhatsApp: ${label}`);
+    toast.style = Toast.Style.Success;
+    toast.title = "Sent to WhatsApp";
+    toast.message = label;
   } catch (err) {
-    await showToast({
-      style: Toast.Style.Failure,
-      title: "Failed to send",
-      message: err instanceof Error ? err.message : "Is the daemon running?",
-    });
+    toast.style = Toast.Style.Failure;
+    toast.title = "Failed to send";
+    toast.message = err instanceof Error ? err.message : "Is the daemon running?";
   }
 }
