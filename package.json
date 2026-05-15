@@ -59,7 +59,7 @@
     }
   ],
   "dependencies": {
-    "@raycast/api": "^1.104.11",
+    "@raycast/api": "^1.104.17",
     "@raycast/utils": "^2.2.3",
     "qrcode": "^1.5.4"
   },
