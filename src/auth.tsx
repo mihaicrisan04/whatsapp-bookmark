@@ -15,7 +15,12 @@ interface AuthState {
 }
 
 export default function Command() {
-  const [state, setState] = useState<AuthState>({ qrDataUrl: null, connected: false, phoneNumber: null, error: null });
+  const [state, setState] = useState<AuthState>({
+    qrDataUrl: null,
+    connected: false,
+    phoneNumber: null,
+    error: null,
+  });
   const [isLoading, setIsLoading] = useState(true);
   const prefs = getPreferenceValues<Preferences>();
   const port = parseInt(prefs.daemonPort) || 7272;
@@ -27,7 +32,12 @@ export default function Command() {
       const status = await statusRes.json();
 
       if (status.connected) {
-        setState({ qrDataUrl: null, connected: true, phoneNumber: status.phoneNumber, error: null });
+        setState({
+          qrDataUrl: null,
+          connected: true,
+          phoneNumber: status.phoneNumber,
+          error: null,
+        });
         setIsLoading(false);
         return;
       }
@@ -42,7 +52,12 @@ export default function Command() {
         setState({ qrDataUrl: null, connected: false, phoneNumber: null, error: null });
       }
     } catch {
-      setState({ qrDataUrl: null, connected: false, phoneNumber: null, error: "daemon not running" });
+      setState({
+        qrDataUrl: null,
+        connected: false,
+        phoneNumber: null,
+        error: "daemon not running",
+      });
     }
     setIsLoading(false);
   }

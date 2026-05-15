@@ -17,7 +17,8 @@ export type ClipboardContent =
 function saveClipboardImage(): string | null {
   const tempPath = join(tmpdir(), `whatsapp-clipboard-${Date.now()}.png`);
   try {
-    const result = execSync(`swift -e '
+    const result = execSync(
+      `swift -e '
 import AppKit
 let pb = NSPasteboard.general
 guard let img = NSImage(pasteboard: pb) else { print("none"); exit(0) }
@@ -27,7 +28,11 @@ guard let tiff = img.tiffRepresentation,
 else { print("none"); exit(0) }
 try png.write(to: URL(fileURLWithPath: "${tempPath}"))
 print("ok")
-'`, { timeout: 10000 }).toString().trim();
+'`,
+      { timeout: 10000 },
+    )
+      .toString()
+      .trim();
 
     if (result === "ok" && existsSync(tempPath) && statSync(tempPath).size > 0) {
       return tempPath;
@@ -92,10 +97,15 @@ export function readClipboard(text?: string, file?: string): ClipboardContent {
 
 export function describeContent(content: ClipboardContent): string {
   switch (content.type) {
-    case "url": return content.url;
-    case "text": return content.text.length > 60 ? content.text.slice(0, 60) + "..." : content.text;
-    case "file": return content.filePath.split("/").pop() || "file";
-    case "image": return "clipboard image";
-    case "empty": return "";
+    case "url":
+      return content.url;
+    case "text":
+      return content.text.length > 60 ? content.text.slice(0, 60) + "..." : content.text;
+    case "file":
+      return content.filePath.split("/").pop() || "file";
+    case "image":
+      return "clipboard image";
+    case "empty":
+      return "";
   }
 }

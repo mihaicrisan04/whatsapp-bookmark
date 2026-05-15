@@ -1,4 +1,4 @@
-import { Action, ActionPanel, Detail, getPreferenceValues, showToast, Toast } from "@raycast/api";
+import { Action, ActionPanel, Detail, getPreferenceValues } from "@raycast/api";
 import { useEffect, useState } from "react";
 
 interface Preferences {
@@ -23,7 +23,10 @@ export default function Command() {
       const res = await fetch(`http://localhost:${port}/status`);
       if (res.ok) {
         const data = await res.json();
-        setInfo({ status: data.connected ? "connected" : "disconnected", phoneNumber: data.phoneNumber });
+        setInfo({
+          status: data.connected ? "connected" : "disconnected",
+          phoneNumber: data.phoneNumber,
+        });
       } else {
         setInfo({ status: "unreachable" });
       }

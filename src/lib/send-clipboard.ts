@@ -2,7 +2,11 @@ import { Clipboard, showToast, Toast } from "@raycast/api";
 import { sendToDaemon } from "./daemon-client";
 import { readClipboard, describeContent } from "./clipboard-media";
 
-export async function sendClipboardTo(port: number, phoneNumber: string, displayName: string): Promise<boolean> {
+export async function sendClipboardTo(
+  port: number,
+  phoneNumber: string,
+  displayName: string,
+): Promise<boolean> {
   const clipboard = await Clipboard.read();
   const content = readClipboard(clipboard.text, clipboard.file);
 
@@ -12,7 +16,10 @@ export async function sendClipboardTo(port: number, phoneNumber: string, display
   }
 
   const label = describeContent(content);
-  const toast = await showToast({ style: Toast.Style.Animated, title: `Sending to ${displayName}...` });
+  const toast = await showToast({
+    style: Toast.Style.Animated,
+    title: `Sending to ${displayName}...`,
+  });
 
   const payload = { phoneNumber } as Record<string, string>;
 

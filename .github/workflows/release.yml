@@ -21,8 +21,9 @@ jobs:
           ref: ${{ github.event.inputs.tag || github.ref }}
       - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - run: mise run install
-      - run: mise run daemon:build
       - run: mise run lint
+      - run: mise run format:check
+      - run: mise run daemon:build
       - name: resolve tag
         id: tag
         run: |

@@ -1,10 +1,4 @@
-import {
-  Action,
-  ActionPanel,
-  Icon,
-  List,
-  getPreferenceValues,
-} from "@raycast/api";
+import { Action, ActionPanel, Icon, List, getPreferenceValues } from "@raycast/api";
 import { useEffect, useState, useCallback } from "react";
 import { sendClipboardTo } from "./lib/send-clipboard";
 
@@ -29,18 +23,21 @@ export default function Command() {
   const prefs = getPreferenceValues<Preferences>();
   const port = parseInt(prefs.daemonPort) || 7272;
 
-  const fetchContacts = useCallback(async (query: string) => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(`http://localhost:${port}/contacts?q=${encodeURIComponent(query)}`);
-      if (res.ok) {
-        setContacts(await res.json());
+  const fetchContacts = useCallback(
+    async (query: string) => {
+      setIsLoading(true);
+      try {
+        const res = await fetch(`http://localhost:${port}/contacts?q=${encodeURIComponent(query)}`);
+        if (res.ok) {
+          setContacts(await res.json());
+        }
+      } catch {
+        // daemon not reachable
       }
-    } catch {
-      // daemon not reachable
-    }
-    setIsLoading(false);
-  }, [port]);
+      setIsLoading(false);
+    },
+    [port],
+  );
 
   useEffect(() => {
     fetchContacts(searchText);
@@ -75,12 +72,14 @@ export default function Command() {
           icon={Icon.Person}
           title={displayName(contact)}
           subtitle={subtitle(contact)}
-          accessories={[
-            ...(contact.verifiedName ? [{ tag: "business" }] : []),
-          ]}
+          accessories={contact.verifiedName ? [{ tag: "business" }] : []}
           actions={
             <ActionPanel>
-              <Action title="Send Clipboard" icon={Icon.Message} onAction={() => handleSend(contact)} />
+              <Action
+                title="Send Clipboard"
+                icon={Icon.Message}
+                onAction={() => handleSend(contact)}
+              />
             </ActionPanel>
           }
         />
@@ -89,7 +88,10 @@ export default function Command() {
         <List.EmptyView title="No contacts found" description={`No match for "${searchText}"`} />
       )}
       {!isLoading && contacts.length === 0 && !searchText && (
-        <List.EmptyView title="No contacts synced yet" description="Contacts load after the daemon connects. Try again in a moment." />
+        <List.EmptyView
+          title="No contacts synced yet"
+          description="Contacts load after the daemon connects. Try again in a moment."
+        />
       )}
     </List>
   );

@@ -51,7 +51,8 @@ after running `mise daemon:auth`:
 | `mise daemon:logs` | tail logs at `/tmp/whatsapp-bookmark-daemon.log` |
 | `mise install` | install all deps |
 | `mise dev` | raycast dev mode |
-| `mise lint` | lint the extension |
+| `mise lint` / `mise lint:fix` | run oxlint |
+| `mise format` / `mise format:check` | run oxfmt |
 
 ## troubleshooting
 

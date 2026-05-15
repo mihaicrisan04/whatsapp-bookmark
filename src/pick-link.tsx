@@ -1,4 +1,13 @@
-import { Action, ActionPanel, Clipboard, Icon, List, showHUD, showToast, Toast, getPreferenceValues } from "@raycast/api";
+import {
+  Action,
+  ActionPanel,
+  Clipboard,
+  Icon,
+  List,
+  showToast,
+  Toast,
+  getPreferenceValues,
+} from "@raycast/api";
 import { useEffect, useState } from "react";
 import { sendToDaemon } from "./lib/daemon-client";
 import { readClipboard, describeContent, type ClipboardContent } from "./lib/clipboard-media";
@@ -15,21 +24,31 @@ interface ClipboardEntry {
 
 function iconForType(type: ClipboardContent["type"]): Icon {
   switch (type) {
-    case "url": return Icon.Link;
-    case "text": return Icon.Text;
-    case "file": return Icon.Document;
-    case "image": return Icon.Image;
-    default: return Icon.QuestionMark;
+    case "url":
+      return Icon.Link;
+    case "text":
+      return Icon.Text;
+    case "file":
+      return Icon.Document;
+    case "image":
+      return Icon.Image;
+    default:
+      return Icon.QuestionMark;
   }
 }
 
 function tagForType(type: ClipboardContent["type"]): string {
   switch (type) {
-    case "url": return "link";
-    case "text": return "text";
-    case "file": return "file";
-    case "image": return "image";
-    default: return "";
+    case "url":
+      return "link";
+    case "text":
+      return "text";
+    case "file":
+      return "file";
+    case "image":
+      return "image";
+    default:
+      return "";
   }
 }
 
@@ -81,7 +100,10 @@ export default function Command() {
 
     const toast = await showToast({ style: Toast.Style.Animated, title: "Sending to WhatsApp..." });
     try {
-      await sendToDaemon(port, payload as { text?: string; filePath?: string; phoneNumber: string });
+      await sendToDaemon(
+        port,
+        payload as { text?: string; filePath?: string; phoneNumber: string },
+      );
       toast.style = Toast.Style.Success;
       toast.title = "Sent to WhatsApp";
       toast.message = label;
@@ -99,7 +121,11 @@ export default function Command() {
           key={entry.offset}
           icon={iconForType(entry.content.type)}
           title={describeContent(entry.content)}
-          subtitle={entry.offset === 0 ? "Current" : `${entry.offset} ${entry.offset === 1 ? "copy" : "copies"} ago`}
+          subtitle={
+            entry.offset === 0
+              ? "Current"
+              : `${entry.offset} ${entry.offset === 1 ? "copy" : "copies"} ago`
+          }
           accessories={[{ tag: tagForType(entry.content.type) }]}
           actions={
             <ActionPanel>

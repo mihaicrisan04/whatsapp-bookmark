@@ -35,8 +35,20 @@ description = "Start Raycast extension in dev mode"
 run = "npm run dev"
 
 [tasks.lint]
-description = "Lint the Raycast extension"
+description = "Lint with oxlint"
 run = "npm run lint"
+
+[tasks."lint:fix"]
+description = "Lint and auto-fix with oxlint"
+run = "npm run lint:fix"
+
+[tasks.format]
+description = "Format with oxfmt"
+run = "npm run format"
+
+[tasks."format:check"]
+description = "Check formatting with oxfmt"
+run = "npm run format:check"
 
 [tasks."daemon:enable"]
 description = "Install and start the daemon as a login service (launchd)"

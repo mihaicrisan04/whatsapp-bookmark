@@ -96,8 +96,14 @@ setInterval(() => {
 }, 5000);
 
 // save on exit
-process.on("SIGINT", () => { if (contactsDirty) saveContactsToDisk(); process.exit(0); });
-process.on("SIGTERM", () => { if (contactsDirty) saveContactsToDisk(); process.exit(0); });
+process.on("SIGINT", () => {
+  if (contactsDirty) saveContactsToDisk();
+  process.exit(0);
+});
+process.on("SIGTERM", () => {
+  if (contactsDirty) saveContactsToDisk();
+  process.exit(0);
+});
 
 function searchContacts(query) {
   const q = query.toLowerCase();
@@ -128,17 +134,30 @@ const VIDEO_EXTS = new Set([".mp4", ".mov", ".avi", ".mkv", ".webm", ".3gp"]);
 const AUDIO_EXTS = new Set([".mp3", ".ogg", ".m4a", ".wav", ".aac", ".opus"]);
 
 const MIME_MAP = {
-  ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
-  ".gif": "image/gif", ".webp": "image/webp",
-  ".mp4": "video/mp4", ".mov": "video/quicktime", ".avi": "video/x-msvideo",
-  ".mkv": "video/x-matroska", ".webm": "video/webm", ".3gp": "video/3gpp",
-  ".mp3": "audio/mpeg", ".ogg": "audio/ogg", ".m4a": "audio/mp4",
-  ".wav": "audio/wav", ".aac": "audio/aac", ".opus": "audio/opus",
-  ".pdf": "application/pdf", ".doc": "application/msword",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+  ".mp4": "video/mp4",
+  ".mov": "video/quicktime",
+  ".avi": "video/x-msvideo",
+  ".mkv": "video/x-matroska",
+  ".webm": "video/webm",
+  ".3gp": "video/3gpp",
+  ".mp3": "audio/mpeg",
+  ".ogg": "audio/ogg",
+  ".m4a": "audio/mp4",
+  ".wav": "audio/wav",
+  ".aac": "audio/aac",
+  ".opus": "audio/opus",
+  ".pdf": "application/pdf",
+  ".doc": "application/msword",
   ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   ".xls": "application/vnd.ms-excel",
   ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  ".zip": "application/zip", ".txt": "text/plain",
+  ".zip": "application/zip",
+  ".txt": "text/plain",
 };
 
 async function buildMessage(payload) {
@@ -209,7 +228,9 @@ async function startWhatsApp() {
 
   // accumulate contacts and chat timestamps
   sock.ev.on("messaging-history.set", (data) => {
-    console.log(`messaging-history.set: ${data.contacts?.length || 0} contacts, ${data.chats?.length || 0} chats`);
+    console.log(
+      `messaging-history.set: ${data.contacts?.length || 0} contacts, ${data.chats?.length || 0} chats`,
+    );
     if (data.contacts?.length) {
       upsertContacts(data.contacts);
       console.log(`synced ${data.contacts.length} contacts (total: ${contacts.size})`);
@@ -288,12 +309,14 @@ async function startWhatsApp() {
 const server = createServer(async (req, res) => {
   if (req.method === "GET" && req.url === "/status") {
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({
-      connected,
-      phoneNumber,
-      hasQR: !!currentQR,
-      pendingMessages: pendingMessages.length,
-    }));
+    res.end(
+      JSON.stringify({
+        connected,
+        phoneNumber,
+        hasQR: !!currentQR,
+        pendingMessages: pendingMessages.length,
+      }),
+    );
     return;
   }
 
