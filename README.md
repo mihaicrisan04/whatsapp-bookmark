@@ -2,7 +2,7 @@
 
 <!-- TODO: replace with the actual demo gif -->
 <p align="center">
-  <img src="assets/demo.gif" alt="whatsapp bookmark demo" width="700">
+  <img width="1020" height="1006" alt="image" src="https://github.com/user-attachments/assets/868b2c65-79d8-494e-9cbc-16cd15143d08" />
 </p>
 
 <p align="center">
